@@ -1,0 +1,9 @@
+babashka/brew
+borkdude/brew
+d12frosted/emacs-plus
+dakra/tap
+dimentium/autoraise
+mongodb/brew
+nikitabobko/tap
+oven-sh/bun
+tanrax/tap

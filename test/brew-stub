@@ -1,0 +1,53 @@
+#!/bin/bash
+# Fake brew executable for interactive testing of brew.el.
+# Answers query commands with canned JSON from test/fixtures/ and
+# pretends to run mutating commands without touching the system.
+# Point `brew-executable' at this script.
+
+DIR="$(cd "$(dirname "$0")" && pwd)/fixtures"
+
+case "$*" in
+    "info --json=v2 --installed")
+        cat "$DIR/installed.json" ;;
+    "outdated --json=v2")
+        cat "$DIR/outdated.json" ;;
+    "services list --json")
+        cat "$DIR/services.json" ;;
+    tap)
+        cat "$DIR/taps.txt" ;;
+    "tap-info "*)
+        cat "$DIR/tap-info.json" ;;
+    "search --formula "*)
+        printf 'ripgrep\nripgrep-all\n' ;;
+    "search --cask "*)
+        printf 'visual-studio-code\n' ;;
+    "info --json=v2 "*)
+        cat "$DIR/search.json" ;;
+    "list --formula")
+        printf 'actionlint\nada-url\nenchant\ngemini-cli\n' ;;
+    "list --cask")
+        printf 'agentsview\nantigravity-cli\n' ;;
+    services\ *|install\ *|uninstall\ *|upgrade*|pin\ *|unpin\ *|update|cleanup*|autoremove|doctor|tap\ *|untap\ *)
+        echo "==> Would run: brew $*"
+        # Emulate Homebrew's ask mode: confirm on a TTY, reading a
+        # single character like brew's $stdin.getch.
+        case "$1" in
+            install) action=installation ;;
+            upgrade) action=upgrade ;;
+            reinstall) action=reinstallation ;;
+            *) action= ;;
+        esac
+        if [ -n "$action" ] && [ -t 0 ]; then
+            echo "==> Do you want to proceed with the $action? [y/n]"
+            read -r -n 1 answer
+            [ "$answer" = y ] || exit 1
+        fi
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+            printf '\r==> Progress: %d0%%' "$i"
+            sleep 0.05
+        done
+        printf '\n==> Done\n' ;;
+    *)
+        echo "brew-stub: unhandled command: $*" >&2
+        exit 1 ;;
+esac

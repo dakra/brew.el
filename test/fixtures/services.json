@@ -1,0 +1,58 @@
+[
+  {
+    "name": "autoraise",
+    "status": "none",
+    "user": null,
+    "file": "/opt/homebrew/opt/autoraise/homebrew.mxcl.autoraise.plist",
+    "exit_code": null
+  },
+  {
+    "name": "dolt",
+    "status": "none",
+    "user": null,
+    "file": "/opt/homebrew/opt/dolt/homebrew.mxcl.dolt.plist",
+    "exit_code": null
+  },
+  {
+    "name": "emacs-plus@32",
+    "status": "started",
+    "user": "daniel",
+    "file": "/Users/daniel/Library/LaunchAgents/homebrew.mxcl.emacs-plus@32.plist",
+    "exit_code": null
+  },
+  {
+    "name": "imapgoose",
+    "status": "none",
+    "user": null,
+    "file": "/opt/homebrew/opt/imapgoose/homebrew.mxcl.imapgoose.plist",
+    "exit_code": null
+  },
+  {
+    "name": "isync",
+    "status": "none",
+    "user": null,
+    "file": "/opt/homebrew/opt/isync/homebrew.mxcl.isync.plist",
+    "exit_code": null
+  },
+  {
+    "name": "mongodb-community",
+    "status": "started",
+    "user": "daniel",
+    "file": "/Users/daniel/Library/LaunchAgents/homebrew.mxcl.mongodb-community.plist",
+    "exit_code": null
+  },
+  {
+    "name": "ollama",
+    "status": "none",
+    "user": null,
+    "file": "/opt/homebrew/opt/ollama/homebrew.mxcl.ollama.plist",
+    "exit_code": null
+  },
+  {
+    "name": "unbound",
+    "status": "none",
+    "user": null,
+    "file": "/opt/homebrew/opt/unbound/homebrew.mxcl.unbound.plist",
+    "exit_code": null
+  }
+]

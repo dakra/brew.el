@@ -1,0 +1,146 @@
+{
+ "formulae": [
+  {
+   "name": "actionlint",
+   "full_name": "actionlint",
+   "tap": "homebrew/core",
+   "desc": "Static checker for GitHub Actions workflow files",
+   "homepage": "https://rhysd.github.io/actionlint/",
+   "versions": {
+    "stable": "1.7.12",
+    "head": "HEAD",
+    "bottle": true
+   },
+   "installed": [
+    {
+     "version": "1.7.12",
+     "installed_on_request": true
+    }
+   ],
+   "pinned": false,
+   "outdated": false,
+   "deprecated": false,
+   "deprecation_reason": null,
+   "dependencies": [
+    "shellcheck"
+   ],
+   "caveats": null
+  },
+  {
+   "name": "ada-url",
+   "full_name": "ada-url",
+   "tap": "homebrew/core",
+   "desc": "WHATWG-compliant and fast URL parser written in modern C++",
+   "homepage": "https://ada-url.com",
+   "versions": {
+    "stable": "3.4.4",
+    "head": "HEAD",
+    "bottle": true
+   },
+   "installed": [
+    {
+     "version": "3.4.4",
+     "installed_on_request": false
+    }
+   ],
+   "pinned": false,
+   "outdated": false,
+   "deprecated": false,
+   "deprecation_reason": null,
+   "dependencies": [
+    "fmt"
+   ],
+   "caveats": null
+  },
+  {
+   "name": "enchant",
+   "full_name": "enchant",
+   "tap": "homebrew/core",
+   "desc": "Spellchecker wrapping library",
+   "homepage": "https://rrthomas.github.io/enchant/",
+   "versions": {
+    "stable": "2.8.19",
+    "head": null,
+    "bottle": true
+   },
+   "installed": [
+    {
+     "version": "2.8.18",
+     "installed_on_request": true
+    }
+   ],
+   "pinned": false,
+   "outdated": true,
+   "deprecated": false,
+   "deprecation_reason": null,
+   "dependencies": [
+    "aspell",
+    "glib",
+    "gettext"
+   ],
+   "caveats": null
+  },
+  {
+   "name": "gemini-cli",
+   "full_name": "gemini-cli",
+   "tap": "homebrew/core",
+   "desc": "Interact with Google Gemini AI models from the command-line",
+   "homepage": "https://geminicli.com",
+   "versions": {
+    "stable": "0.46.0",
+    "head": null,
+    "bottle": true
+   },
+   "installed": [
+    {
+     "version": "0.46.0",
+     "installed_on_request": true
+    }
+   ],
+   "pinned": false,
+   "outdated": false,
+   "deprecated": true,
+   "deprecation_reason": "unsupported",
+   "dependencies": [
+    "node"
+   ],
+   "caveats": null
+  }
+ ],
+ "casks": [
+  {
+   "token": "agentsview",
+   "full_token": "agentsview",
+   "tap": "homebrew/cask",
+   "name": [
+    "AgentsView"
+   ],
+   "desc": "Browse, search and analyse your past AI coding sessions",
+   "homepage": "https://www.agentsview.io/",
+   "version": "0.36.1",
+   "installed": "0.36.1",
+   "outdated": false,
+   "auto_updates": null,
+   "deprecated": false,
+   "deprecation_reason": null,
+   "caveats": null
+  },
+  {
+   "token": "antigravity-cli",
+   "full_token": "antigravity-cli",
+   "tap": "homebrew/cask",
+   "name": [
+    "Google Antigravity CLI"
+   ],
+   "desc": "Terminal interface for Antigravity agents",
+   "homepage": "https://antigravity.google/product/antigravity-cli",
+   "version": "1.0.16,4893150192467968",
+   "installed": "1.0.2,6109799369277440",
+   "outdated": false,
+   "auto_updates": true,
+   "deprecated": false,
+   "deprecation_reason": null,
+   "caveats": null
+  }
+ ]
+}

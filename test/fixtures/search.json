@@ -1,0 +1,68 @@
+{
+ "formulae": [
+  {
+   "name": "ripgrep",
+   "full_name": "ripgrep",
+   "tap": "homebrew/core",
+   "desc": "Search tool like grep and The Silver Searcher",
+   "homepage": "https://github.com/BurntSushi/ripgrep",
+   "versions": {
+    "stable": "14.1.1",
+    "head": "HEAD",
+    "bottle": true
+   },
+   "installed": [],
+   "pinned": false,
+   "outdated": false,
+   "deprecated": false,
+   "deprecation_reason": null,
+   "dependencies": [
+    "pcre2"
+   ],
+   "caveats": null
+  },
+  {
+   "name": "ripgrep-all",
+   "full_name": "ripgrep-all",
+   "tap": "homebrew/core",
+   "desc": "Wrapper around ripgrep that adds multiple rich file types",
+   "homepage": "https://github.com/phiresky/ripgrep-all",
+   "versions": {
+    "stable": "0.10.9",
+    "head": null,
+    "bottle": true
+   },
+   "installed": [],
+   "pinned": false,
+   "outdated": false,
+   "deprecated": false,
+   "deprecation_reason": null,
+   "dependencies": [
+    "pandoc",
+    "poppler",
+    "ripgrep"
+   ],
+   "caveats": null
+  }
+ ],
+ "casks": [
+  {
+   "token": "visual-studio-code",
+   "full_token": "visual-studio-code",
+   "tap": "homebrew/cask",
+   "name": [
+    "Microsoft Visual Studio Code",
+    "VS Code"
+   ],
+   "desc": "Open-source code editor",
+   "homepage": "https://code.visualstudio.com/",
+   "version": "1.101.2",
+   "installed": null,
+   "outdated": false,
+   "auto_updates": true,
+   "deprecated": false,
+   "deprecation_reason": null,
+   "caveats": null
+  }
+ ]
+}

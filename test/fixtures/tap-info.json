@@ -1,0 +1,18 @@
+[
+  {
+    "name": "d12frosted/emacs-plus",
+    "user": "d12frosted",
+    "repo": "emacs-plus",
+    "installed": true,
+    "official": false,
+    "formula_names": [
+      "d12frosted/emacs-plus/emacs-plus@29",
+      "d12frosted/emacs-plus/emacs-plus@30",
+      "d12frosted/emacs-plus/emacs-plus@31",
+      "d12frosted/emacs-plus/emacs-plus@30"
+    ],
+    "cask_tokens": [
+      "d12frosted/emacs-plus/emacs-app"
+    ]
+  }
+]
