@@ -27,6 +27,8 @@ case "$*" in
         printf 'actionlint\nada-url\nenchant\ngemini-cli\n' ;;
     "list --cask")
         printf 'agentsview\nantigravity-cli\n' ;;
+    update-if-needed)
+        ;;
     services\ *|install\ *|uninstall\ *|upgrade*|pin\ *|unpin\ *|update|cleanup*|autoremove|doctor|tap\ *|untap\ *)
         echo "==> Would run: brew $*"
         # Emulate Homebrew's ask mode: confirm on a TTY, reading a

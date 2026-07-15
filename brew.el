@@ -114,14 +114,12 @@ directory provide completion candidates for `brew-install'."
 ;;;; Process layer
 
 (defvar brew--query-environment
-  '("HOMEBREW_NO_AUTO_UPDATE=1" "HOMEBREW_NO_ENV_HINTS=1")
-  "Extra environment for non-mutating brew queries.")
+  '("HOMEBREW_NO_ENV_HINTS=1")
+  "Extra environment for brew commands whose output stays hidden.")
 
 (defvar brew--run-environment
-  '("HOMEBREW_NO_AUTO_UPDATE=1" "HOMEBREW_NO_ENV_HINTS=1" "HOMEBREW_COLOR=1")
-  "Extra environment for mutating brew commands.
-Auto-updating is disabled so that commands run predictably; use
-`brew-update' to update the package definitions.")
+  '("HOMEBREW_NO_ENV_HINTS=1" "HOMEBREW_COLOR=1")
+  "Extra environment for brew commands shown in the *brew* buffer.")
 
 (defun brew--parse-json ()
   "Parse the current buffer as JSON the way brew.el expects.
@@ -196,6 +194,12 @@ ON-ERROR is called with no arguments when brew fails."
 Only the queue runner sets and clears this; it guards against
 starting two brew processes concurrently.")
 
+(defvar brew--update-if-needed-callbacks nil
+  "Pending continuations of a running \"brew update-if-needed\".
+Non-nil while the update process is in flight; mutating commands
+are deferred until it finishes so that they do not contend for
+Homebrew's update lock.")
+
 (define-derived-mode brew-process-mode special-mode "Brew-Process"
   "Major mode for the output of mutating brew commands."
   (setq-local window-point-insertion-type t))
@@ -215,7 +219,7 @@ the command is queued.  CALLBACK is called with no arguments when
 the command finishes, regardless of its exit status."
   (setq brew--run-queue (append brew--run-queue (list (cons args callback))))
   (display-buffer (brew--process-buffer))
-  (unless brew--run-active
+  (unless (or brew--run-active brew--update-if-needed-callbacks)
     (brew--run-next)))
 
 (defun brew--run-next ()
@@ -578,19 +582,54 @@ Mark packages with \\[brew-mark-install], \\[brew-mark-uninstall] and
   "Refresh the package list buffer from brew."
   (brew--fetch-installed (current-buffer)))
 
+(defun brew--update-if-needed-finish (failed)
+  "Run the pending update continuations, then any queued brew commands.
+Each continuation is called with FAILED."
+  (let ((callbacks (nreverse brew--update-if-needed-callbacks)))
+    (setq brew--update-if-needed-callbacks nil)
+    (dolist (callback callbacks)
+      (funcall callback failed))
+    (unless brew--run-active
+      (brew--run-next))))
+
+(defun brew--update-if-needed (callback)
+  "Update Homebrew's package definitions if they are stale.
+Runs \"brew update-if-needed\", which is rate-limited by Homebrew
+itself, and then calls CALLBACK with one argument: non-nil when
+the update attempt failed.  Concurrent calls share one brew
+process.  While a mutating brew command is active, the update is
+skipped and CALLBACK is called right away."
+  (cond
+   (brew--run-active
+    (funcall callback nil))
+   (brew--update-if-needed-callbacks
+    (push callback brew--update-if-needed-callbacks))
+   (t
+    (push callback brew--update-if-needed-callbacks)
+    (brew--call '("update-if-needed")
+                (lambda (_output) (brew--update-if-needed-finish nil))
+                nil
+                (lambda () (brew--update-if-needed-finish t))))))
+
 (defun brew--fetch-installed (buffer)
-  "Asynchronously fetch all installed packages and display them in BUFFER."
+  "Asynchronously fetch all installed packages and display them in BUFFER.
+Refreshes the package definitions first (see `brew--update-if-needed')
+so that the outdated statuses are current."
   (message "brew: refreshing package list...")
   (let ((generation (with-current-buffer buffer
                       (setq brew--generation (1+ brew--generation)))))
-    (brew--call-json
-     '("info" "--json=v2" "--installed")
-     (lambda (json)
-       (when (buffer-live-p buffer)
-         (with-current-buffer buffer
-           (when (= generation brew--generation)
-             (brew--set-info json 'installed)
-             (message "brew: %d packages" (length brew--entries)))))))))
+    (brew--update-if-needed
+     (lambda (update-failed)
+       (brew--call-json
+        '("info" "--json=v2" "--installed")
+        (lambda (json)
+          (when (buffer-live-p buffer)
+            (with-current-buffer buffer
+              (when (= generation brew--generation)
+                (brew--set-info json 'installed)
+                (message "brew: %d packages%s" (length brew--entries)
+                         (if update-failed " (update check failed)"
+                           "")))))))))))
 
 (defun brew--set-info (json view)
   "Populate the buffer-local package caches from brew info JSON.
