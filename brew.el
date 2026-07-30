@@ -1401,9 +1401,10 @@ buffer's `brew--generation'."
   [["Buffers"
     ("l" "Packages" brew-list-packages)
     ("o" "Outdated packages" brew-list-outdated)
-    ("s" "Services" brew-services)
+    ("S" "Services" brew-services)
     ("t" "Taps" brew-taps)]
    ["Packages"
+    ("s" "Search…" brew-search)
     ("i" "Install…" brew-install)
     ("u" "Upgrade all…" brew-upgrade-all)
     ("d" "Uninstall…" brew-uninstall)]
