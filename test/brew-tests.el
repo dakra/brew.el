@@ -264,6 +264,48 @@
       (delete-process proc)
       (kill-buffer buffer))))
 
+(ert-deftest brew-tests-run-answer-password ()
+  (let* ((buffer (generate-new-buffer " *brew-tests-password*"))
+         (proc (make-process :name "brew-tests-password" :buffer buffer
+                             :command '("cat") :noquery t))
+         asked sent)
+    (unwind-protect
+        (cl-letf (((symbol-function 'read-passwd)
+                   (lambda (prompt &rest _)
+                     (setq asked prompt)
+                     (copy-sequence "secret")))
+                  ((symbol-function 'process-send-string)
+                   (lambda (_proc string) (setq sent string))))
+          (with-current-buffer buffer
+            (goto-char (point-max))
+            (insert "==> Running installer for spotify\n")
+            (set-marker (process-mark proc) (point)))
+          ;; No password prompt in the output yet.
+          (brew--run-answer-password proc)
+          (should-not asked)
+          (with-current-buffer buffer
+            (goto-char (point-max))
+            (insert "Password:")
+            (set-marker (process-mark proc) (point)))
+          (brew--run-answer-password proc)
+          (should (equal asked "Password: "))
+          (should (equal sent "secret\n"))
+          ;; The same prompt is not answered twice.
+          (setq asked nil sent nil)
+          (brew--run-answer-password proc)
+          (should-not asked)
+          (should-not sent)
+          ;; A renewed prompt after a failed attempt is answered again.
+          (with-current-buffer buffer
+            (goto-char (point-max))
+            (insert "\nSorry, try again.\nPassword:")
+            (set-marker (process-mark proc) (point)))
+          (brew--run-answer-password proc)
+          (should (equal asked "Password: "))
+          (should (equal sent "secret\n")))
+      (delete-process proc)
+      (kill-buffer buffer))))
+
 ;;;; Taps
 
 (ert-deftest brew-tests-tap-package-names ()

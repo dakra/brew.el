@@ -46,6 +46,7 @@
 ;;; Code:
 
 (require 'ansi-color)
+(require 'comint)
 (require 'let-alist)
 (require 'seq)
 (require 'subr-x)
@@ -290,7 +291,8 @@ across two chunks."
                 (delete-region (line-beginning-position) (point))
                 (insert (ansi-color-apply part))))
             (set-marker (process-mark proc) (point)))))))
-  (brew--run-answer-prompt proc))
+  (brew--run-answer-prompt proc)
+  (brew--run-answer-password proc))
 
 (defconst brew--run-prompt-regexp
   "^==> Do you want to proceed with the \\([a-z]+\\)\\? \\[y/n\\]$"
@@ -321,6 +323,33 @@ waiting for a newline.  Quitting the minibuffer prompt answers
                             (quit "n"))))
               (when (process-live-p proc)
                 (process-send-string proc answer)))))))))
+
+(defun brew--run-answer-password (proc)
+  "Forward a pending sudo password prompt of PROC to the minibuffer.
+Prompts matching `comint-password-prompt-regexp' at the end of
+the output are answered with `read-passwd'; the password is never
+echoed into the buffer.  Quitting the prompt interrupts brew."
+  (let ((buffer (process-buffer proc)))
+    (when (and (process-live-p proc) (buffer-live-p buffer))
+      (with-current-buffer buffer
+        (let* ((end (process-mark proc))
+               (prompt (buffer-substring-no-properties
+                        (save-excursion (goto-char end)
+                                        (line-beginning-position))
+                        end)))
+          (when (and (let ((case-fold-search t))
+                       (string-match-p comint-password-prompt-regexp prompt))
+                     (not (eql (marker-position end)
+                               (process-get proc 'brew-password-pos))))
+            (process-put proc 'brew-password-pos (marker-position end))
+            (let ((password (condition-case nil
+                                (read-passwd (concat (string-trim prompt) " "))
+                              (quit nil))))
+              (when (process-live-p proc)
+                (if (null password)
+                    (interrupt-process proc)
+                  (process-send-string proc (concat password "\n"))
+                  (clear-string password))))))))))
 
 (defun brew--run-sentinel (proc _event)
   "Handle completion of the mutating brew process PROC."
