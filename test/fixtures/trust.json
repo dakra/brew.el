@@ -1,0 +1,14 @@
+{
+  "taps": [
+    "dakra/tap",
+    "mongodb/brew"
+  ],
+  "formulae": [
+    "dakra/tap/elate"
+  ],
+  "casks": [
+    "tanrax/tap/emacs-gpu",
+    "tanrax/tap/other"
+  ],
+  "commands": []
+}

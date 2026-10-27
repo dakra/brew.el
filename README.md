@@ -76,7 +76,14 @@ their tap is not trusted.
 
 ### Taps (`M-x brew-taps`)
 
-Lists your taps.  `a` adds a tap, `d` removes the tap at point.
+Lists your taps and whether Homebrew trusts them.  Homebrew only loads
+formulae, casks and commands from non-official taps that are trusted,
+either as a whole or item by item (`brew trust`).  The Trust column
+shows `official`, `trusted` or the number of individually trusted
+items.  Taps with a custom remote are trusted under their remote URL
+and show no trust status.
+`a` adds a tap, `d` removes the tap at point and `t` trusts or
+untrusts it; untrusting a tap also drops the trust of its items.
 `RET` (or a mouse click on the tap name) lists the packages the tap
 provides in the package list buffer, where they can be marked and
 installed like search results.

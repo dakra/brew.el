@@ -1434,16 +1434,20 @@ instead, are counted separately."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "a") #'brew-taps-add)
     (define-key map (kbd "d") #'brew-taps-remove)
+    (define-key map (kbd "t") #'brew-taps-trust-toggle)
     (define-key map (kbd "RET") #'brew-taps-show-packages)
     (define-key map (kbd "?") #'brew-taps-help)
     map)
   "Keymap for `brew-taps-mode'.")
 
+(defvar-local brew--tap-trust nil
+  "Parsed output of \"brew trust --json=v1\", or nil if unavailable.")
+
 (define-derived-mode brew-taps-mode tabulated-list-mode "Brew-Taps"
   "Major mode for managing Homebrew taps.
 
 \\{brew-taps-mode-map}"
-  (setq tabulated-list-format (vector '("Tap" 40 t)))
+  (setq tabulated-list-format (vector '("Tap" 40 t) '("Trust" 0 t)))
   (setq tabulated-list-padding 2)
   (setq tabulated-list-sort-key (cons "Tap" nil))
   (setq-local revert-buffer-function #'brew--taps-revert)
@@ -1460,23 +1464,49 @@ instead, are counted separately."
       (brew--taps-revert))
     (pop-to-buffer buffer)))
 
+(defun brew--tap-official-p (tap)
+  "Return non-nil if TAP is an official Homebrew tap."
+  (string-prefix-p "homebrew/" tap t))
+
+(defun brew--tap-trust (tap trust)
+  "Return the trust status of TAP as a string.
+TRUST is the parsed output of \"brew trust --json=v1\".  Official
+taps are always trusted; an untrusted tap may still have some of
+its formulae, casks or commands trusted individually."
+  (let-alist trust
+    (cond
+     ((brew--tap-official-p tap) (propertize "official" 'face 'shadow))
+     ((member tap .taps) (propertize "trusted" 'face 'success))
+     (t (let ((items (seq-count (lambda (item)
+                                  (string-prefix-p (concat tap "/") item))
+                                (append .formulae .casks .commands))))
+          (if (zerop items)
+              ""
+            (format "%d item%s" items (if (= items 1) "" "s"))))))))
+
+(defun brew--tap-entry (tap trust)
+  "Return a tabulated-list entry for TAP with the TRUST data."
+  (list tap
+        (vector (cons tap (list 'action #'brew--taps-button-action
+                                'follow-link t))
+                (brew--tap-trust tap trust))))
+
 (defun brew--taps-revert (&rest _args)
   "Refresh the taps buffer from brew."
   (let ((buffer (current-buffer)))
     (brew--call-lines
      '("tap")
      (lambda (taps)
-       (when (buffer-live-p buffer)
-         (with-current-buffer buffer
-           (setq tabulated-list-entries
-                 (mapcar (lambda (tap)
-                           (list tap
-                                 (vector
-                                  (cons tap
-                                        (list 'action #'brew--taps-button-action
-                                              'follow-link t)))))
-                         taps))
-           (tabulated-list-print t)))))))
+       (let ((show (lambda (trust)
+                     (when (buffer-live-p buffer)
+                       (with-current-buffer buffer
+                         (setq brew--tap-trust trust)
+                         (setq tabulated-list-entries
+                               (mapcar (lambda (tap) (brew--tap-entry tap trust))
+                                       taps))
+                         (tabulated-list-print t))))))
+         (brew--call '("trust" "--json=v1") show #'brew--parse-json
+                     (lambda () (funcall show nil))))))))
 
 (defun brew--revert-taps-buffer ()
   "Revert the taps buffer if it exists."
@@ -1496,6 +1526,24 @@ instead, are counted separately."
                  (user-error "No tap on this line"))))
     (when (yes-or-no-p (format "Untap %s? " tap))
       (brew--run (list "untap" tap) #'brew--revert-taps-buffer))))
+
+(defun brew-taps-trust-toggle ()
+  "Trust the tap at point so Homebrew may load it, or stop trusting it.
+Untrusting a tap also removes the trust of its individual items."
+  (interactive)
+  (let ((tap (or (tabulated-list-get-id)
+                 (user-error "No tap on this line"))))
+    (when (brew--tap-official-p tap)
+      (user-error "Official tap %s is always trusted" tap))
+    (unless brew--tap-trust
+      (user-error "Trust data unavailable; refresh the buffer"))
+    (let ((untrust (member tap (alist-get 'taps brew--tap-trust))))
+      (when (yes-or-no-p
+             (if untrust
+                 (format "Stop trusting %s and all of its items? " tap)
+               (format "Trust %s so Homebrew may load its code? " tap)))
+        (brew--run (list (if untrust "untrust" "trust") "--tap" tap)
+                   #'brew--revert-taps-buffer)))))
 
 (defun brew--tap-package-names (json)
   "Return the package names listed in the tap-info JSON array."
@@ -1590,6 +1638,7 @@ buffer's `brew--generation'."
    ("RET" "Show tap packages" brew-taps-show-packages)
    ("a" "Add tap…" brew-taps-add)
    ("d" "Remove tap" brew-taps-remove)
+   ("t" "Trust/untrust tap" brew-taps-trust-toggle)
    ("g" "Refresh" revert-buffer)])
 
 ;;;; Top-level dispatcher

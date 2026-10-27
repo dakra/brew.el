@@ -321,6 +321,44 @@
   (should-not (brew--tap-package-names '(((formula_names . ())
                                           (cask_tokens . ()))))))
 
+;;;; Tap trust
+
+(ert-deftest brew-tests-tap-trust ()
+  (let ((trust (brew-tests--fixture-json "trust.json")))
+    (should (equal (brew--tap-trust "homebrew/core" trust) "official"))
+    (should (equal (brew--tap-trust "dakra/tap" trust) "trusted"))
+    (should (equal (brew--tap-trust "tanrax/tap" trust) "2 items"))
+    (should (equal (brew--tap-trust "oven-sh/bun" trust) ""))
+    ;; Without trust data (brew trust failed), only official taps count.
+    (should (equal (brew--tap-trust "dakra/tap" nil) ""))
+    (should (equal (brew--tap-trust "homebrew/cask" nil) "official"))
+    ;; Trusted commands count as items.
+    (should (equal (brew--tap-trust "foo/bar" '((commands "foo/bar/cmd")))
+                   "1 item"))))
+
+(ert-deftest brew-tests-tap-trust-toggle ()
+  (with-temp-buffer
+    (brew-taps-mode)
+    (setq tabulated-list-entries
+          (mapcar (lambda (tap) (brew--tap-entry tap nil))
+                  '("dakra/tap" "homebrew/core" "oven-sh/bun")))
+    (tabulated-list-print)
+    (let (ran)
+      (cl-letf (((symbol-function 'brew--run)
+                 (lambda (args &optional _callback) (setq ran args)))
+                ((symbol-function 'yes-or-no-p) #'always))
+        (goto-char (point-min))
+        ;; Without trust data the toggle cannot tell which way to go.
+        (should-error (brew-taps-trust-toggle) :type 'user-error)
+        (setq brew--tap-trust '((taps "dakra/tap")))
+        (brew-taps-trust-toggle)
+        (should (equal ran '("untrust" "--tap" "dakra/tap")))
+        (forward-line 1)
+        (should-error (brew-taps-trust-toggle) :type 'user-error)
+        (forward-line 1)
+        (brew-taps-trust-toggle)
+        (should (equal ran '("trust" "--tap" "oven-sh/bun")))))))
+
 ;;;; Services
 
 (ert-deftest brew-tests-service-entry ()

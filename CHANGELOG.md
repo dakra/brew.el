@@ -9,8 +9,9 @@ Initial release.
   style marks (`i`/`d`/`U`) and batch execution (`x`), pinning,
   filtering, search over all of Homebrew and a package detail buffer.
 - `brew-services`: start, stop and restart `brew services` daemons.
-- `brew-taps`: list, add and remove taps; `RET` or a mouse click on a
-  tap lists its packages in the package list buffer.
+- `brew-taps`: list, add and remove taps, and trust or untrust them
+  (`brew trust`); `RET` or a mouse click on a tap lists its packages
+  in the package list buffer.
 - `brew-vulns`: list known vulnerabilities of installed formulae
   from OSV.dev, browse them and upgrade the affected formulae.
 - `brew-install` with instant completion over all available packages

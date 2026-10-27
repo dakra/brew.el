@@ -14,6 +14,8 @@ case "$*" in
     "vulns --json")
         cat "$DIR/vulns.json"
         exit 1 ;;
+    "trust --json=v1")
+        cat "$DIR/trust.json" ;;
     "services list --json")
         cat "$DIR/services.json" ;;
     tap)
@@ -32,7 +34,7 @@ case "$*" in
         printf 'agentsview\nantigravity-cli\n' ;;
     update-if-needed)
         ;;
-    services\ *|install\ *|uninstall\ *|upgrade*|pin\ *|unpin\ *|update|cleanup*|autoremove|doctor|tap\ *|untap\ *)
+    services\ *|install\ *|uninstall\ *|upgrade*|pin\ *|unpin\ *|update|cleanup*|autoremove|doctor|tap\ *|untap\ *|trust\ *|untrust\ *)
         echo "==> Would run: brew $*"
         # Emulate Homebrew's ask mode: confirm on a TTY, reading a
         # single character like brew's $stdin.getch.

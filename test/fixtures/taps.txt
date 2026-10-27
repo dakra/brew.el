@@ -7,3 +7,4 @@ mongodb/brew
 nikitabobko/tap
 oven-sh/bun
 tanrax/tap
+homebrew/core
