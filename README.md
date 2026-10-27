@@ -27,8 +27,9 @@ Buffers                Packages           Maintenance
  l Packages             s Search…          U Update
  o Outdated packages    i Install…         c Cleanup…
  S Services             I Install version… A Autoremove
- t Taps                 u Upgrade all…     D Doctor
- v Vulnerabilities      d Uninstall…
+ t Taps                 p Package info…    D Doctor
+ v Vulnerabilities      u Upgrade all…
+                        d Uninstall…
 ```
 
 ### Package list (`M-x brew-list-packages`)
@@ -46,7 +47,7 @@ versions and a status (`outdated`, `pinned`, `disabled`, `deprecated`,
 | `x`         | Execute the marks (transient with `--greedy`, `--zap`, `--force`, `--dry-run`); with no marks, acts on the package at point |
 | `P`         | Pin/unpin the formula at point                                                                                              |
 | `s`         | Search all of Homebrew; results are markable with `i`                                                                       |
-| `RET`       | Show package details (homepage, deps, caveats, …)                                                                           |
+| `RET`       | Show package details (homepage, dependencies, installed dependents, caveats, …)                                             |
 | `b`         | Browse the package homepage                                                                                                 |
 | `/ n`       | Filter by name (regexp)                                                                                                     |
 | `/ s`       | Filter by status                                                                                                            |
@@ -93,6 +94,9 @@ At most `brew-tap-max-packages` are fetched in detail.
 
 `brew-install` completes over *all* available formulae and casks
 (instantly, from Homebrew's cached API name lists).
+`brew-info` shows the details of any package.  In the details buffer,
+the dependencies and the installed packages that depend on it, directly
+or indirectly ("Needed by"), are buttons that show their own details.
 `brew-version-install` installs a specific version of a formula
 (`brew version-install`), extracting it into a personal tap.
 Unless Homebrew already has a versioned formula for that version, this

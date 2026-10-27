@@ -7,7 +7,9 @@ Initial release.
 - `brew` top-level transient dispatcher.
 - `brew-list-packages`: unified formula/cask list with package-menu
   style marks (`i`/`d`/`U`) and batch execution (`x`), pinning,
-  filtering, search over all of Homebrew and a package detail buffer.
+  filtering, search over all of Homebrew and a package detail buffer
+  (also `brew-info`) with buttons for dependencies and installed
+  dependents.
 - `brew-services`: start, stop and restart `brew services` daemons.
 - `brew-taps`: list, add and remove taps, and trust or untrust them
   (`brew trust`); `RET` or a mouse click on a tap lists its packages

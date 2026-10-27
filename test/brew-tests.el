@@ -461,6 +461,59 @@
                                     (buffer-string)))))
       (brew-tests--kill-process-buffer))))
 
+;;;; Package info
+
+(ert-deftest brew-tests-render-info-buttons ()
+  (with-temp-buffer
+    (brew--render-info '("enchant" . formula) (brew-tests--formula "enchant"))
+    (goto-char (point-min))
+    (search-forward "Dependencies:")
+    (let ((button (next-button (point))))
+      (should button)
+      (should (equal (button-label button) "aspell")))
+    (should (text-property-any (point-min) (point-max) 'brew-needed-by t))
+    ;; Filling the placeholder replaces it with buttons.
+    (brew--info-fill-needed-by (current-buffer) '("foo" "tap/x/bar"))
+    (should-not (text-property-any (point-min) (point-max) 'brew-needed-by t))
+    (goto-char (point-min))
+    (search-forward "Needed by:")
+    (should (looking-at-p " *foo, tap/x/bar$"))
+    (should (equal (button-label (next-button (point))) "foo"))))
+
+(ert-deftest brew-tests-info-fill-needed-by-none ()
+  (with-temp-buffer
+    (insert "Needed by:      " (propertize "…" 'brew-needed-by t) "\n")
+    (brew--info-fill-needed-by (current-buffer) nil)
+    (should (equal (buffer-string) "Needed by:      none\n"))))
+
+(ert-deftest brew-tests-brew-info ()
+  "brew-info passes --cask only for casks and names buffers uniquely.
+Dependents are fetched only for installed formulae, by full name."
+  (let (calls)
+    (cl-letf (((symbol-function 'brew--call)
+               (lambda (args callback &rest _)
+                 (push args calls)
+                 (pcase (car args)
+                   ("info" (funcall callback
+                                    (if (member "--cask" args)
+                                        `((casks ,(brew-tests--cask "agentsview")))
+                                      `((formulae ,(brew-tests--formula "enchant"))))))
+                   ("uses" (funcall callback '("dependent"))))))
+              ((symbol-function 'pop-to-buffer) #'ignore))
+      (unwind-protect
+          (progn
+            (brew-info "enchant")
+            (brew-info "agentsview" 'cask)
+            (should (equal (nreverse calls)
+                           '(("info" "--json=v2" "enchant")
+                             ("uses" "--installed" "enchant")
+                             ("info" "--json=v2" "--cask" "agentsview"))))
+            (with-current-buffer "*brew-info: enchant*"
+              (should (string-match-p "Needed by: +dependent" (buffer-string))))
+            (should (get-buffer "*brew-info: agentsview (cask)*")))
+        (dolist (name '("*brew-info: enchant*" "*brew-info: agentsview (cask)*"))
+          (when (get-buffer name) (kill-buffer name)))))))
+
 ;;;; Vulnerabilities
 
 (ert-deftest brew-tests-vuln-entries ()

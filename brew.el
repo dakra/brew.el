@@ -32,12 +32,13 @@
 ;;   `tabulated-list-mode' buffer modeled after `list-packages':
 ;;   mark packages with `i' (install), `d' (uninstall) or `U' (mark
 ;;   all upgrades), then execute the marks with `x'.  `s' searches
-;;   all of Homebrew, `RET' shows package details, `p' pins/unpins,
+;;   all of Homebrew, `RET' shows package details, `P' pins/unpins,
 ;;   `/' filters by name, status or type.
 ;; - `brew-services' manages `brew services' daemons (start, stop, restart).
 ;; - `brew-taps' lists taps and lets you add, remove, trust or untrust
 ;;   them.
 ;; - `brew-vulns' lists known vulnerabilities of installed formulae.
+;; - `brew-info' shows the details of any package.
 ;; - `brew-install', `brew-version-install', `brew-upgrade-all',
 ;;   `brew-update', `brew-cleanup', `brew-autoremove' and `brew-doctor'
 ;;   run the corresponding maintenance commands.
@@ -978,6 +979,32 @@ it when it is not installed, uninstall it otherwise."
     (insert (propertize (format "%-14s" (concat label ":")) 'face 'bold)
             value "\n")))
 
+(defun brew--info-insert-package-buttons (names)
+  "Insert comma-separated buttons showing the details of package NAMES."
+  (while names
+    (let ((name (pop names)))
+      (insert-text-button name
+                          'action (lambda (_button) (brew-info name))
+                          'follow-link t
+                          'help-echo "Show details of this package"))
+    (when names (insert ", "))))
+
+(defun brew--info-fill-needed-by (buffer names &optional text)
+  "Fill the \"Needed by\" placeholder in the info BUFFER.
+Insert buttons for the package NAMES, or TEXT when it is non-nil,
+or \"none\"."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (when-let* ((start (text-property-any (point-min) (point-max)
+                                            'brew-needed-by t)))
+        (let ((inhibit-read-only t))
+          (save-excursion
+            (goto-char start)
+            (delete-region start (line-end-position))
+            (cond (text (insert text))
+                  (names (brew--info-insert-package-buttons names))
+                  (t (insert "none")))))))))
+
 (defun brew--render-info (id raw)
   "Insert details for the package ID from its RAW info alist."
   (let ((type (cdr id)))
@@ -1006,9 +1033,14 @@ it when it is not installed, uninstall it otherwise."
                     (unless (alist-get 'installed_on_request installed)
                       " (as dependency)"))))
          (when .pinned (brew--info-insert-field "Pinned" "yes"))
-         (brew--info-insert-field "Dependencies"
-                                  (when .dependencies
-                                    (string-join .dependencies ", "))))
+         (when .dependencies
+           (insert (propertize (format "%-14s" "Dependencies:") 'face 'bold))
+           (brew--info-insert-package-buttons .dependencies)
+           (insert "\n"))
+         (when .installed
+           (insert (propertize (format "%-14s" "Needed by:") 'face 'bold)
+                   (propertize "…" 'brew-needed-by t)
+                   "\n")))
         ('cask
          (brew--info-insert-field "Version" .version)
          (brew--info-insert-field "Installed" .installed)
@@ -1024,19 +1056,55 @@ it when it is not installed, uninstall it otherwise."
         (insert "\n" (propertize "Caveats:" 'face 'bold) "\n"
                 (string-trim-right .caveats) "\n")))))
 
-(defun brew-package-info ()
-  "Show details for the package at point in a separate buffer."
-  (interactive)
-  (let* ((id (brew--id-at-point))
-         (raw (brew--raw-at-point))
-         (buffer (get-buffer-create (format "*brew-info: %s*" (car id)))))
+(defun brew--show-info (id raw)
+  "Show details for the package ID from its RAW info alist.
+For an installed formula, the installed packages depending on it,
+directly or indirectly, are fetched asynchronously."
+  (let ((buffer (get-buffer-create
+                 (if (eq (cdr id) 'cask)
+                     (format "*brew-info: %s (cask)*"
+                             (or (alist-get 'full_token raw) (car id)))
+                   (format "*brew-info: %s*"
+                           (or (alist-get 'full_name raw) (car id)))))))
     (with-current-buffer buffer
       (special-mode)
       (let ((inhibit-read-only t))
         (erase-buffer)
         (brew--render-info id raw)
         (goto-char (point-min))))
+    (when (and (eq (cdr id) 'formula) (alist-get 'installed raw))
+      (brew--call-lines
+       (list "uses" "--installed"
+             (or (alist-get 'full_name raw) (car id)))
+       (lambda (names) (brew--info-fill-needed-by buffer names))
+       (lambda () (brew--info-fill-needed-by buffer nil "unknown"))))
     (pop-to-buffer buffer)))
+
+(defun brew-package-info ()
+  "Show details for the package at point in a separate buffer."
+  (interactive)
+  (brew--show-info (brew--id-at-point) (brew--raw-at-point)))
+
+;;;###autoload
+(defun brew-info (name &optional type)
+  "Show details for the Homebrew package NAME.
+TYPE is the symbol `cask' to look up a cask of that name;
+otherwise a formula takes precedence over a cask."
+  (interactive
+   (let ((package (brew--read-available-package "Package info: ")))
+     (list (car package) (cdr package))))
+  (message "brew: fetching info for %s..." name)
+  (brew--call-json
+   (append '("info" "--json=v2") (when (eq type 'cask) '("--cask")) (list name))
+   (lambda (json)
+     (let ((formula (car (alist-get 'formulae json)))
+           (cask (car (alist-get 'casks json))))
+       (cond (formula
+              (brew--show-info (cons (alist-get 'name formula) 'formula)
+                               formula))
+             (cask
+              (brew--show-info (cons (alist-get 'token cask) 'cask) cask)))
+       (message nil)))))
 
 ;;;; Search
 
@@ -1137,14 +1205,14 @@ The names are read from Homebrew's cached API name lists (see
               (puthash name (if (gethash name table) 'both type) table))))))
     table))
 
-(defun brew--read-available-package ()
-  "Read an available package name with completion.
+(defun brew--read-available-package (&optional prompt)
+  "Read an available package name with completion, prompting with PROMPT.
 Return a (NAME . TYPE) cons where TYPE is the symbol `formula',
 `cask', `both' or nil when the name is not in the cached lists."
   (let* ((table (brew--available-packages))
          (name
           (if (zerop (hash-table-count table))
-              (read-string "Install package: ")
+              (read-string (or prompt "Install package: "))
             (let ((completion-extra-properties
                    (list :annotation-function
                          (lambda (name)
@@ -1152,7 +1220,7 @@ Return a (NAME . TYPE) cons where TYPE is the symbol `formula',
                              ('formula "  formula")
                              ('cask "  cask")
                              ('both "  formula, cask"))))))
-              (completing-read "Install package: " table)))))
+              (completing-read (or prompt "Install package: ") table)))))
     (cons name (gethash name table))))
 
 ;;;###autoload
@@ -1759,6 +1827,7 @@ buffer's `brew--generation'."
     ("s" "Search…" brew-search)
     ("i" "Install…" brew-install)
     ("I" "Install version…" brew-version-install)
+    ("p" "Package info…" brew-info)
     ("u" "Upgrade all…" brew-upgrade-all)
     ("d" "Uninstall…" brew-uninstall)]
    ["Maintenance"
