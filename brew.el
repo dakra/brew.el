@@ -36,6 +36,7 @@
 ;;   `/' filters by name, status or type.
 ;; - `brew-services' manages `brew services' daemons (start, stop, restart).
 ;; - `brew-taps' lists taps and lets you add or remove them.
+;; - `brew-vulns' lists known vulnerabilities of installed formulae.
 ;; - `brew-install', `brew-upgrade-all', `brew-update',
 ;;   `brew-cleanup', `brew-autoremove' and `brew-doctor' run the
 ;;   corresponding maintenance commands.
@@ -52,6 +53,7 @@
 (require 'subr-x)
 (require 'tabulated-list)
 (require 'transient)
+(require 'url-util)
 
 ;;;; Customization
 
@@ -133,13 +135,14 @@ false become nil."
   "Return the current buffer's contents as a list of non-empty lines."
   (split-string (buffer-string) "\n" t))
 
-(defun brew--call (args callback &optional parser on-error)
+(defun brew--call (args callback &optional parser on-error exit-codes)
   "Run brew with ARGS asynchronously and pass the output to CALLBACK.
 The process output is collected in a hidden buffer.  On success,
 PARSER (defaulting to `buffer-string') is called in that buffer
 and its result is passed to CALLBACK.  On failure, a message with
 the stderr output is shown and ON-ERROR, if non-nil, is called
-with no arguments."
+with no arguments.  Exit codes in the list EXIT-CODES also count
+as success when brew printed any output."
   (let* ((stdout (generate-new-buffer " *brew-stdout*"))
          (stderr (generate-new-buffer " *brew-stderr*"))
          (stderr-pipe (make-pipe-process
@@ -156,7 +159,11 @@ with no arguments."
      (lambda (proc _event)
        (when (memq (process-status proc) '(exit signal))
          (unwind-protect
-             (if (zerop (process-exit-status proc))
+             (if (let ((code (process-exit-status proc)))
+                   (or (zerop code)
+                       (and (eq (process-status proc) 'exit)
+                            (memq code exit-codes)
+                            (> (buffer-size stdout) 0))))
                  (let ((result (with-current-buffer stdout
                                  (goto-char (point-min))
                                  (funcall (or parser #'buffer-string)))))
@@ -1270,6 +1277,154 @@ A \"--severity=\" option implies \"--vulnerable\"."
            (user-error "Service file %s does not exist" file))
           (t (find-file file)))))
 
+;;;; Vulnerabilities
+
+(defvar brew-vulns-buffer-name "*brew-vulns*"
+  "Name of the Homebrew vulnerabilities buffer.")
+
+(defvar brew-vulns-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'brew-vulns-browse)
+    (define-key map (kbd "u") #'brew-vulns-upgrade)
+    (define-key map (kbd "?") #'brew-vulns-help)
+    map)
+  "Keymap for `brew-vulns-mode'.")
+
+(defconst brew--vuln-severities '("CRITICAL" "HIGH" "MEDIUM" "LOW" "UNKNOWN")
+  "Vulnerability severities, in sort order (most severe first).")
+
+(defconst brew--vuln-severity-faces
+  '(("CRITICAL" . (bold error))
+    ("HIGH" . error)
+    ("MEDIUM" . warning)
+    ("LOW" . shadow))
+  "Alist mapping vulnerability severities to faces.")
+
+(defun brew--vuln-severity-rank (entry)
+  "Return the sort rank of the severity of the vulnerability ENTRY."
+  (or (seq-position brew--vuln-severities
+                    (substring-no-properties (aref (cadr entry) 2)))
+      (length brew--vuln-severities)))
+
+(defun brew--vuln-severity-sort-p (entry1 entry2)
+  "Return non-nil if ENTRY1 is more severe than ENTRY2."
+  (< (brew--vuln-severity-rank entry1) (brew--vuln-severity-rank entry2)))
+
+(defun brew--commit-sha-p (string)
+  "Return non-nil if STRING is a full Git commit SHA."
+  (string-match-p "\\`[0-9a-f]\\{40\\}\\'" string))
+
+(defun brew--vuln-entries (json)
+  "Return tabulated-list entries for the findings in brew vulns JSON.
+Each entry is one vulnerability; its ID is a (FORMULA . VULN-ID)
+cons.  Vulnerabilities resolved by a formula patch are left out.
+The \"Fixed in\" column lists released fix versions only, not the
+upstream commits that fix a vulnerability."
+  (mapcan
+   (lambda (finding)
+     (let ((formula (alist-get 'formula finding))
+           (version (alist-get 'version finding)))
+       (mapcar
+        (lambda (vuln)
+          (let-alist vuln
+            (let ((severity (or .severity "UNKNOWN")))
+              (list (cons formula .id)
+                    (vector formula
+                            (brew--version-column version)
+                            (propertize severity 'face
+                                        (cdr (assoc severity
+                                                    brew--vuln-severity-faces)))
+                            .id
+                            (brew--version-column
+                             (string-join (seq-remove #'brew--commit-sha-p
+                                                      .fixed_versions)
+                                          ", "))
+                            (or .summary ""))))))
+        (alist-get 'vulnerabilities finding))))
+   (alist-get 'findings json)))
+
+(defun brew--vulns-summary (json)
+  "Return a short summary of the brew vulns JSON scan results.
+Formulae that could not be scanned and formulae whose installed
+source is unknown, so that the current formula was scanned
+instead, are counted separately."
+  (let-alist json
+    (let ((counts (mapcar (lambda (finding)
+                            (length (alist-get 'vulnerabilities finding)))
+                          .findings)))
+      (concat
+       (format "%d vulnerabilities in %d formulae, %d checked, %d not scanned"
+               (apply #'+ counts) (seq-count (lambda (count) (> count 0)) counts) .checked
+               (+ (length .skipped_formulae) (length .unscanned_formulae)))
+       (when .outdated_without_sbom
+         (format ", %d scanned at the current formula version"
+                 (length .outdated_without_sbom)))))))
+
+(define-derived-mode brew-vulns-mode tabulated-list-mode "Brew-Vulns"
+  "Major mode for browsing known vulnerabilities of installed formulae.
+
+\\{brew-vulns-mode-map}"
+  (setq tabulated-list-format
+        (vector '("Formula" 20 t)
+                '("Installed" 12 t)
+                (list "Severity" 9 #'brew--vuln-severity-sort-p)
+                '("ID" 18 t)
+                '("Fixed in" 12 t)
+                '("Summary" 0 nil)))
+  (setq tabulated-list-padding 2)
+  (setq tabulated-list-sort-key (cons "Severity" nil))
+  (setq-local revert-buffer-function #'brew--vulns-revert)
+  (tabulated-list-init-header))
+
+;;;###autoload
+(defun brew-vulns ()
+  "Check installed formulae for known vulnerabilities from OSV.dev."
+  (interactive)
+  (let ((buffer (get-buffer-create brew-vulns-buffer-name)))
+    (with-current-buffer buffer
+      (unless (derived-mode-p 'brew-vulns-mode)
+        (brew-vulns-mode))
+      (brew--vulns-revert))
+    (pop-to-buffer buffer)))
+
+(defun brew--vulns-revert (&rest _args)
+  "Refresh the vulnerabilities buffer from brew."
+  (let ((buffer (current-buffer)))
+    (message "brew: checking installed formulae for vulnerabilities...")
+    ;; brew vulns exits with 1 when it finds vulnerabilities.
+    (brew--call
+     '("vulns" "--json")
+     (lambda (json)
+       (when (buffer-live-p buffer)
+         (with-current-buffer buffer
+           (setq tabulated-list-entries (brew--vuln-entries json))
+           (tabulated-list-print t)
+           (setq mode-line-process (concat ": " (brew--vulns-summary json)))
+           (force-mode-line-update)
+           (message "brew: %s" (brew--vulns-summary json)))))
+     #'brew--parse-json nil '(1))))
+
+(defun brew-vulns-browse ()
+  "Browse the OSV.dev page of the vulnerability at point."
+  (interactive)
+  (let ((id (or (tabulated-list-get-id)
+                (user-error "No vulnerability on this line"))))
+    (browse-url (concat "https://osv.dev/vulnerability/"
+                        (url-hexify-string (cdr id))))))
+
+(defun brew-vulns-upgrade ()
+  "Upgrade the formula of the vulnerability at point."
+  (interactive)
+  (let ((id (or (tabulated-list-get-id)
+                (user-error "No vulnerability on this line")))
+        (buffer (current-buffer)))
+    (brew--run (list "upgrade" "--formula" (car id))
+               (lambda ()
+                 (brew--revert-package-list)
+                 (when (buffer-live-p buffer)
+                   (with-current-buffer buffer
+                     (revert-buffer)))))))
+
 ;;;; Taps
 
 (defvar brew-taps-buffer-name "*brew-taps*"
@@ -1420,6 +1575,14 @@ buffer's `brew--generation'."
    ("RET" "Visit service file" brew-services-visit-file)
    ("g" "Refresh" revert-buffer)])
 
+;;;###autoload (autoload 'brew-vulns-help "brew" nil t)
+(transient-define-prefix brew-vulns-help ()
+  "List the commands of `brew-vulns-mode'."
+  ["Vulnerabilities"
+   ("RET" "Browse on OSV.dev" brew-vulns-browse)
+   ("u" "Upgrade formula" brew-vulns-upgrade)
+   ("g" "Rescan" revert-buffer)])
+
 ;;;###autoload (autoload 'brew-taps-help "brew" nil t)
 (transient-define-prefix brew-taps-help ()
   "List the commands of `brew-taps-mode'."
@@ -1438,7 +1601,8 @@ buffer's `brew--generation'."
     ("l" "Packages" brew-list-packages)
     ("o" "Outdated packages" brew-list-outdated)
     ("S" "Services" brew-services)
-    ("t" "Taps" brew-taps)]
+    ("t" "Taps" brew-taps)
+    ("v" "Vulnerabilities" brew-vulns)]
    ["Packages"
     ("s" "Search…" brew-search)
     ("i" "Install…" brew-install)

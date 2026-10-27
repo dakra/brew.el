@@ -24,10 +24,11 @@ brew.el has no dependencies outside of Emacs (≥ 28.1).
 
 ```
 Buffers                Packages           Maintenance
- l Packages             i Install…         U Update
- o Outdated packages    u Upgrade all…     c Cleanup…
- s Services             d Uninstall…       A Autoremove
- t Taps                                    D Doctor
+ l Packages             s Search…          U Update
+ o Outdated packages    i Install…         c Cleanup…
+ S Services             u Upgrade all…     A Autoremove
+ t Taps                 d Uninstall…       D Doctor
+ v Vulnerabilities
 ```
 
 ### Package list (`M-x brew-list-packages`)
@@ -62,6 +63,16 @@ the active filters.
 Lists `brew services` with their status.
 `s` starts, `o` stops and `r` restarts the service at point.
 `RET` visits the launchd plist/systemd unit file.
+
+### Vulnerabilities (`M-x brew-vulns`)
+
+Checks all installed formulae for known vulnerabilities from OSV.dev
+(`brew vulns`) and lists them, most severe first.
+`RET` opens the vulnerability on OSV.dev, `u` upgrades its formula and
+`g` rescans.  "Fixed in" lists released versions with a fix.
+The mode line shows how many formulae were checked and how many could
+not be scanned, for example because their source is unsupported or
+their tap is not trusted.
 
 ### Taps (`M-x brew-taps`)
 

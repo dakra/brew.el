@@ -11,6 +11,9 @@ case "$*" in
         cat "$DIR/installed.json" ;;
     "outdated --json=v2")
         cat "$DIR/outdated.json" ;;
+    "vulns --json")
+        cat "$DIR/vulns.json"
+        exit 1 ;;
     "services list --json")
         cat "$DIR/services.json" ;;
     tap)

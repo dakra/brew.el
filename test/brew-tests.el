@@ -352,6 +352,50 @@
          (vec (cadr entry)))
     (should (equal (substring-no-properties (aref vec 1)) "error (78)"))))
 
+;;;; Vulnerabilities
+
+(ert-deftest brew-tests-vuln-entries ()
+  (let* ((entries (brew--vuln-entries (brew-tests--fixture-json "vulns.json")))
+         (libxml2 (assoc '("libxml2" . "OSV-2021-777") entries))
+         (openjpeg (assoc '("openjpeg" . "CVE-2026-107080") entries)))
+    ;; Patched vulnerabilities are left out.
+    (should (= (length entries) 5))
+    (should-not (assoc '("openjpeg" . "CVE-2026-6192") entries))
+    (should (equal (substring-no-properties (aref (cadr libxml2) 2)) "HIGH"))
+    (should (equal (aref (cadr libxml2) 4) "2.15.5"))
+    (should (equal (aref (cadr openjpeg) 4) ""))
+    (should (equal (aref (cadr openjpeg) 5) ""))))
+
+(ert-deftest brew-tests-vuln-severity-sort ()
+  (let* ((entries (brew--vuln-entries (brew-tests--fixture-json "vulns.json")))
+         (sorted (sort (copy-sequence entries) #'brew--vuln-severity-sort-p)))
+    (should (equal (mapcar (lambda (entry)
+                             (substring-no-properties (aref (cadr entry) 2)))
+                           sorted)
+                   '("HIGH" "HIGH" "UNKNOWN" "UNKNOWN" "UNKNOWN")))))
+
+(ert-deftest brew-tests-vulns-summary ()
+  (should (equal (brew--vulns-summary (brew-tests--fixture-json "vulns.json"))
+                 (concat "5 vulnerabilities in 3 formulae, 226 checked, 4 not scanned, "
+                         "1 scanned at the current formula version"))))
+
+(ert-deftest brew-tests-call-exit-codes ()
+  "Listed exit codes count as success only when brew printed output."
+  (let ((brew-executable "sh")
+        (inhibit-message t))
+    (pcase-dolist (`(,script ,expected) '(("echo out; exit 1" ok)
+                                          ("exit 1" error)
+                                          ("echo out; exit 2" error)))
+      (let (done)
+        (brew--call (list "-c" script)
+                    (lambda (_output) (setq done 'ok))
+                    nil
+                    (lambda () (setq done 'error))
+                    '(1))
+        (with-timeout (5 (error "Timed out"))
+          (while (not done) (accept-process-output nil 0.05)))
+        (should (eq done expected))))))
+
 ;;;; Upgrade all
 
 (ert-deftest brew-tests-upgrade-all-severity-implies-vulnerable ()

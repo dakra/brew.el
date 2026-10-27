@@ -1,0 +1,114 @@
+{
+  "findings": [
+    {
+      "formula": "libxml2",
+      "version": "2.15.4",
+      "tag": "2.15.4",
+      "repo_url": "https://gitlab.gnome.org/GNOME/libxml2",
+      "vulnerabilities": [
+        {
+          "id": "OSV-2021-777",
+          "severity": "HIGH",
+          "summary": "Heap-use-after-free in xmlAddNextSibling",
+          "aliases": [],
+          "fixed_versions": [
+            "2.15.5",
+            "0123456789abcdef0123456789abcdef01234567"
+          ]
+        },
+        {
+          "id": "OSV-2024-698",
+          "severity": "HIGH",
+          "summary": "Heap-use-after-free in xmlCharEncCloseFunc",
+          "aliases": [],
+          "fixed_versions": []
+        }
+      ],
+      "patched": []
+    },
+    {
+      "formula": "llama.cpp",
+      "version": "0.7.0",
+      "tag": "0.7.0",
+      "repo_url": "https://github.com/ggml-org/llama.cpp",
+      "vulnerabilities": [
+        {
+          "id": "CVE-2026-116096",
+          "severity": "UNKNOWN",
+          "summary": "ggml-org llama.cpp Pocket-TTS pockettts-gen.cpp list_pockettts_state_slots out-of-bounds write",
+          "aliases": [],
+          "fixed_versions": [
+            "0a1ef309cdbb9f2024f58a38fb4c42352c5db569"
+          ]
+        },
+        {
+          "id": "CVE-2026-116467",
+          "severity": "UNKNOWN",
+          "summary": "ggml-org llama.cpp Mirostat Sampler llama-sampler.cpp assertion",
+          "aliases": [],
+          "fixed_versions": []
+        }
+      ],
+      "patched": []
+    },
+    {
+      "formula": "openjpeg",
+      "version": "2.5.4",
+      "tag": "v2.5.4",
+      "repo_url": "https://github.com/uclouvain/openjpeg",
+      "vulnerabilities": [
+        {
+          "id": "CVE-2026-107080",
+          "severity": "UNKNOWN",
+          "summary": null,
+          "aliases": [],
+          "fixed_versions": [
+            "a38e970fa59abd796c703ec469e578b09f7ffa33"
+          ]
+        }
+      ],
+      "patched": [
+        {
+          "id": "CVE-2026-6192",
+          "severity": "UNKNOWN",
+          "summary": "uclouvain openjpeg pi.c opj_pi_initialise_encode integer overflow",
+          "aliases": [],
+          "fixed_versions": [
+            "839936aa33eb8899bbbd80fda02796bb65068951"
+          ]
+        }
+      ]
+    },
+    {
+      "formula": "zlib",
+      "version": "1.3.1",
+      "tag": "v1.3.1",
+      "repo_url": "https://github.com/madler/zlib",
+      "vulnerabilities": [],
+      "patched": [
+        {
+          "id": "CVE-2026-0001",
+          "severity": "LOW",
+          "summary": "Example fixed by a formula patch",
+          "aliases": [],
+          "fixed_versions": [
+            "1.3.2"
+          ]
+        }
+      ]
+    }
+  ],
+  "skipped_formulae": [
+    "lame",
+    "libtiff",
+    "libtool"
+  ],
+  "checked": 226,
+  "complete": false,
+  "outdated_without_sbom": [
+    "libxml2"
+  ],
+  "unscanned_formulae": {
+    "tanrax/tap/foo": "untrusted_tap"
+  }
+}
