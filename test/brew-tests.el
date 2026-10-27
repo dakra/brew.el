@@ -407,6 +407,60 @@
          (vec (cadr entry)))
     (should (equal (substring-no-properties (aref vec 1)) "error (78)"))))
 
+;;;; Interrupting and cancelling
+
+(defun brew-tests--kill-process-buffer ()
+  "Kill the test process buffer and any brew process still running in it."
+  (when-let* ((buffer (get-buffer brew-process-buffer-name)))
+    (when-let* ((proc (get-buffer-process buffer)))
+      (delete-process proc))
+    (kill-buffer buffer)))
+
+(ert-deftest brew-tests-cancel-all ()
+  "Cancelling interrupts the running command and drops the queue."
+  (let ((brew-executable "sh")
+        (brew-process-buffer-name " *brew-test*")
+        (inhibit-message t)
+        brew--run-queue brew--run-active brew--update-if-needed-callbacks
+        finished)
+    (unwind-protect
+        (cl-letf (((symbol-function 'display-buffer) #'ignore))
+          (brew--run '("-c" "sleep 10") (lambda () (push 'first finished)))
+          (brew--run '("-c" "true") (lambda () (push 'second finished)))
+          (with-current-buffer brew-process-buffer-name
+            (should (equal mode-line-process ": running, 1 queued")))
+          (brew-cancel-all)
+          (with-timeout (5 (error "Timed out"))
+            (while brew--run-active (accept-process-output nil 0.05)))
+          (should (equal finished '(first)))
+          (should-not brew--run-queue)
+          (with-current-buffer brew-process-buffer-name
+            (should (equal mode-line-process ""))
+            (should (string-match-p "✗ interrupted" (buffer-string))))
+          (should-error (brew-interrupt) :type 'user-error))
+      (brew-tests--kill-process-buffer))))
+
+(ert-deftest brew-tests-interrupt-runs-next ()
+  "Interrupting keeps the queue; the next command starts afterwards."
+  (let ((brew-executable "sh")
+        (brew-process-buffer-name " *brew-test*")
+        (inhibit-message t)
+        brew--run-queue brew--run-active brew--update-if-needed-callbacks
+        finished)
+    (unwind-protect
+        (cl-letf (((symbol-function 'display-buffer) #'ignore))
+          (brew--run '("-c" "sleep 10") (lambda () (push 'first finished)))
+          (brew--run '("-c" "true") (lambda () (push 'second finished)))
+          (brew-interrupt)
+          (with-timeout (5 (error "Timed out"))
+            (while (or brew--run-active brew--run-queue)
+              (accept-process-output nil 0.05)))
+          (should (equal finished '(second first)))
+          (with-current-buffer brew-process-buffer-name
+            (should (string-match-p "✗ interrupted\n.*\n✓ finished"
+                                    (buffer-string)))))
+      (brew-tests--kill-process-buffer))))
+
 ;;;; Vulnerabilities
 
 (ert-deftest brew-tests-vuln-entries ()

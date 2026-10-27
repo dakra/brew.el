@@ -43,7 +43,8 @@
 ;;   run the corresponding maintenance commands.
 ;;
 ;; All brew invocations are asynchronous.
-;; Mutating commands stream their output into the *brew* buffer.
+;; Mutating commands stream their output into the *brew* buffer, where
+;; C-c C-c interrupts the running one and C-c C-k also drops the queue.
 
 ;;; Code:
 
@@ -209,8 +210,19 @@ Non-nil while the update process is in flight; mutating commands
 are deferred until it finishes so that they do not contend for
 Homebrew's update lock.")
 
+(defvar brew-process-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-c") #'brew-interrupt)
+    (define-key map (kbd "C-c C-k") #'brew-cancel-all)
+    map)
+  "Keymap for `brew-process-mode'.")
+
 (define-derived-mode brew-process-mode special-mode "Brew-Process"
-  "Major mode for the output of mutating brew commands."
+  "Major mode for the output of mutating brew commands.
+The mode line shows whether a command is running and how many are
+queued.
+
+\\{brew-process-mode-map}"
   (setq-local window-point-insertion-type t))
 
 (defun brew--process-buffer ()
@@ -229,7 +241,8 @@ the command finishes, regardless of its exit status."
   (setq brew--run-queue (append brew--run-queue (list (cons args callback))))
   (display-buffer (brew--process-buffer))
   (unless (or brew--run-active brew--update-if-needed-callbacks)
-    (brew--run-next)))
+    (brew--run-next))
+  (brew--update-process-mode-line))
 
 (defun brew--run-next ()
   "Start the next queued brew command, if any."
@@ -271,7 +284,53 @@ the command finishes, regardless of its exit status."
                     (error-message-string err))
            (when callback (funcall callback))
            (brew--run-next))))
-    (setq brew--run-active nil)))
+    (setq brew--run-active nil))
+  (brew--update-process-mode-line))
+
+(defun brew--update-process-mode-line ()
+  "Show the running and queued brew commands in the *brew* mode line."
+  (when-let* ((buffer (get-buffer brew-process-buffer-name)))
+    (with-current-buffer buffer
+      (setq mode-line-process
+          (concat (when brew--run-active ": running")
+                  (when brew--run-queue
+                    (format "%s %d queued"
+                            (if brew--run-active "," ":")
+                            (length brew--run-queue)))))
+      (force-mode-line-update))))
+
+(defun brew--running-process ()
+  "Return the running mutating brew process, or nil."
+  (when-let* ((buffer (get-buffer brew-process-buffer-name))
+              (proc (get-buffer-process buffer)))
+    (and (process-live-p proc) proc)))
+
+(defun brew-interrupt ()
+  "Interrupt the running brew command as a terminal interrupt would.
+Queued commands start once it has exited."
+  (interactive)
+  (interrupt-process (or (brew--running-process)
+                         (user-error "No brew command running"))
+                     t))
+
+(defun brew-cancel-all ()
+  "Drop all queued brew commands and interrupt the running one.
+The callbacks of dropped commands are not called; instead the
+package list is refreshed once the running command has exited."
+  (interactive)
+  (let ((proc (brew--running-process)))
+    (unless (or proc brew--run-queue)
+      (user-error "No brew command running or queued"))
+    (setq brew--run-queue nil)
+    (brew--update-process-mode-line)
+    (if (not proc)
+        (brew--revert-package-list)
+      (let ((callback (process-get proc 'brew-callback)))
+        (process-put proc 'brew-callback
+                     (lambda ()
+                       (when callback (funcall callback))
+                       (brew--revert-package-list))))
+      (interrupt-process proc t))))
 
 (defun brew--run-filter (proc string)
   "Insert STRING from PROC, handling carriage-return progress redraws.
@@ -366,19 +425,22 @@ echoed into the buffer.  Quitting the prompt interrupts brew."
           (callback (process-get proc 'brew-callback))
           (code (process-exit-status proc))
           (buffer (process-buffer proc)))
-      (when (buffer-live-p buffer)
-        (with-current-buffer buffer
-          (let ((inhibit-read-only t))
-            (goto-char (point-max))
-            (unless (bolp) (insert "\n"))
-            (insert (if (zerop code)
-                        (propertize "✓ finished\n" 'face 'success)
-                      (propertize (format "✗ failed with exit code %d\n" code)
-                                  'face 'error))))))
-      (if (zerop code)
-          (message "brew %s: finished" (string-join args " "))
-        (message "brew %s: failed with exit code %d (see %s)"
-                 (string-join args " ") code brew-process-buffer-name))
+      ;; Homebrew exits with 130 when it is interrupted.
+      (let ((status (cond ((zerop code) "finished")
+                          ((or (eq (process-status proc) 'signal) (= code 130))
+                           "interrupted")
+                          (t (format "failed with exit code %d" code)))))
+        (when (buffer-live-p buffer)
+          (with-current-buffer buffer
+            (let ((inhibit-read-only t))
+              (goto-char (point-max))
+              (unless (bolp) (insert "\n"))
+              (insert (if (zerop code)
+                          (propertize "✓ finished\n" 'face 'success)
+                        (propertize (format "✗ %s\n" status) 'face 'error))))))
+        (message "brew %s: %s%s" (string-join args " ") status
+                 (if (zerop code) ""
+                   (format " (see %s)" brew-process-buffer-name))))
       (brew--run-next)
       (when callback (funcall callback)))))
 

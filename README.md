@@ -101,7 +101,10 @@ needs a local clone of homebrew/core (`brew tap homebrew/core`).
 `brew-autoremove` and `brew-doctor` do what their names say.
 `brew-upgrade-all` can restrict the upgrade to formulae with known
 vulnerabilities (`--vulnerable`, optionally with a minimum `--severity`).
-Mutating commands stream their output into the `*brew*` buffer.
+Mutating commands stream their output into the `*brew*` buffer and run
+one at a time; its mode line shows the running and queued commands.
+There, `C-c C-c` interrupts the running command and `C-c C-k` also
+drops all queued ones.
 
 ## Customization
 

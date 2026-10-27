@@ -21,4 +21,5 @@ Initial release.
   only formulae with known vulnerabilities),
   `brew-cleanup`, `brew-autoremove`, `brew-doctor`.
 - All brew calls are asynchronous; mutations stream into the `*brew*`
-  buffer with progress-bar and color rendering.
+  buffer with progress-bar and color rendering, where the running
+  command can be interrupted and queued ones dropped.
