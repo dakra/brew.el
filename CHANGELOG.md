@@ -16,6 +16,7 @@ Initial release.
   from OSV.dev, browse them and upgrade the affected formulae.
 - `brew-install` with instant completion over all available packages
   from Homebrew's cached API name lists.
+- `brew-version-install`: install a specific version of a formula.
 - Maintenance commands: `brew-update`, `brew-upgrade-all` (optionally
   only formulae with known vulnerabilities),
   `brew-cleanup`, `brew-autoremove`, `brew-doctor`.

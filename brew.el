@@ -35,11 +35,12 @@
 ;;   all of Homebrew, `RET' shows package details, `p' pins/unpins,
 ;;   `/' filters by name, status or type.
 ;; - `brew-services' manages `brew services' daemons (start, stop, restart).
-;; - `brew-taps' lists taps and lets you add or remove them.
+;; - `brew-taps' lists taps and lets you add, remove, trust or untrust
+;;   them.
 ;; - `brew-vulns' lists known vulnerabilities of installed formulae.
-;; - `brew-install', `brew-upgrade-all', `brew-update',
-;;   `brew-cleanup', `brew-autoremove' and `brew-doctor' run the
-;;   corresponding maintenance commands.
+;; - `brew-install', `brew-version-install', `brew-upgrade-all',
+;;   `brew-update', `brew-cleanup', `brew-autoremove' and `brew-doctor'
+;;   run the corresponding maintenance commands.
 ;;
 ;; All brew invocations are asynchronous.
 ;; Mutating commands stream their output into the *brew* buffer.
@@ -1096,6 +1097,34 @@ or a (NAME . TYPE) cons as returned by
                  (list "install" name))
                #'brew--revert-package-list)))
 
+(defun brew--read-formula (prompt)
+  "Read a formula name with PROMPT, completing over cached formula names.
+Versioned formulae such as \"python@3.12\" are not offered."
+  (let ((table (brew--available-packages)))
+    (completing-read prompt
+                     (lambda (string pred action)
+                       (complete-with-action
+                        action table string
+                        (lambda (name type)
+                          (and (memq type '(formula both))
+                               (not (string-search "@" name))
+                               (or (null pred) (funcall pred name type)))))))))
+
+;;;###autoload
+(defun brew-version-install (formula version)
+  "Install VERSION of FORMULA.
+Homebrew extracts that version of the formula into a personal tap
+and installs it from there.  Unless Homebrew already provides a
+versioned formula for VERSION, extracting it needs a local clone
+of homebrew/core (\"brew tap homebrew/core\")."
+  (interactive
+   (let ((formula (brew--read-formula "Install version of formula: ")))
+     (list formula (read-string (format "Version of %s: " formula)))))
+  (when (string-empty-p version)
+    (user-error "No version given"))
+  (brew--run (list "version-install" formula version)
+             #'brew--revert-package-list))
+
 (defun brew--installed-names ()
   "Return the names of all installed formulae and casks.
 This calls brew synchronously and may take a second."
@@ -1655,6 +1684,7 @@ buffer's `brew--generation'."
    ["Packages"
     ("s" "Search…" brew-search)
     ("i" "Install…" brew-install)
+    ("I" "Install version…" brew-version-install)
     ("u" "Upgrade all…" brew-upgrade-all)
     ("d" "Uninstall…" brew-uninstall)]
    ["Maintenance"

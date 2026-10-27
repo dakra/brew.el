@@ -26,9 +26,9 @@ brew.el has no dependencies outside of Emacs (≥ 28.1).
 Buffers                Packages           Maintenance
  l Packages             s Search…          U Update
  o Outdated packages    i Install…         c Cleanup…
- S Services             u Upgrade all…     A Autoremove
- t Taps                 d Uninstall…       D Doctor
- v Vulnerabilities
+ S Services             I Install version… A Autoremove
+ t Taps                 u Upgrade all…     D Doctor
+ v Vulnerabilities      d Uninstall…
 ```
 
 ### Package list (`M-x brew-list-packages`)
@@ -93,6 +93,10 @@ At most `brew-tap-max-packages` are fetched in detail.
 
 `brew-install` completes over *all* available formulae and casks
 (instantly, from Homebrew's cached API name lists).
+`brew-version-install` installs a specific version of a formula
+(`brew version-install`), extracting it into a personal tap.
+Unless Homebrew already has a versioned formula for that version, this
+needs a local clone of homebrew/core (`brew tap homebrew/core`).
 `brew-uninstall`, `brew-update`, `brew-upgrade-all`, `brew-cleanup`,
 `brew-autoremove` and `brew-doctor` do what their names say.
 `brew-upgrade-all` can restrict the upgrade to formulae with known

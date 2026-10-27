@@ -434,6 +434,31 @@
           (while (not done) (accept-process-output nil 0.05)))
         (should (eq done expected))))))
 
+;;;; Version install
+
+(ert-deftest brew-tests-read-formula-completes-formulae-only ()
+  (let ((table (make-hash-table :test #'equal)))
+    (puthash "wget" 'formula table)
+    (puthash "firefox" 'cask table)
+    (puthash "docker" 'both table)
+    (puthash "python@3.12" 'formula table)
+    (cl-letf (((symbol-function 'brew--available-packages) (lambda () table))
+              ((symbol-function 'completing-read)
+               (lambda (_prompt collection &rest _) collection)))
+      (let ((collection (brew--read-formula "Formula: ")))
+        (should (equal (sort (all-completions "" collection) #'string<)
+                       '("docker" "wget")))
+        (should (test-completion "wget" collection))
+        (should-not (test-completion "firefox" collection))))))
+
+(ert-deftest brew-tests-version-install ()
+  (let (ran)
+    (cl-letf (((symbol-function 'brew--run)
+               (lambda (args &optional _callback) (setq ran args))))
+      (brew-version-install "wget" "1.21")
+      (should (equal ran '("version-install" "wget" "1.21")))
+      (should-error (brew-version-install "wget" "") :type 'user-error))))
+
 ;;;; Upgrade all
 
 (ert-deftest brew-tests-upgrade-all-severity-implies-vulnerable ()
