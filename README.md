@@ -77,6 +77,8 @@ At most `brew-tap-max-packages` are fetched in detail.
 (instantly, from Homebrew's cached API name lists).
 `brew-uninstall`, `brew-update`, `brew-upgrade-all`, `brew-cleanup`,
 `brew-autoremove` and `brew-doctor` do what their names say.
+`brew-upgrade-all` can restrict the upgrade to formulae with known
+vulnerabilities (`--vulnerable`, optionally with a minimum `--severity`).
 Mutating commands stream their output into the `*brew*` buffer.
 
 ## Customization

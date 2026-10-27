@@ -352,5 +352,18 @@
          (vec (cadr entry)))
     (should (equal (substring-no-properties (aref vec 1)) "error (78)"))))
 
+;;;; Upgrade all
+
+(ert-deftest brew-tests-upgrade-all-severity-implies-vulnerable ()
+  (let (ran)
+    (cl-letf (((symbol-function 'brew--run)
+               (lambda (args &optional _callback) (setq ran args))))
+      (brew-upgrade-all-run '("--severity=high"))
+      (should (equal ran '("upgrade" "--vulnerable" "--severity=high")))
+      (brew-upgrade-all-run '("--vulnerable" "--severity=low"))
+      (should (equal ran '("upgrade" "--vulnerable" "--severity=low")))
+      (brew-upgrade-all-run '("--greedy"))
+      (should (equal ran '("upgrade" "--greedy"))))))
+
 (provide 'brew-tests)
 ;;; brew-tests.el ends here

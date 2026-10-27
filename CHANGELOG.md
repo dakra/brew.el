@@ -13,7 +13,8 @@ Initial release.
   tap lists its packages in the package list buffer.
 - `brew-install` with instant completion over all available packages
   from Homebrew's cached API name lists.
-- Maintenance commands: `brew-update`, `brew-upgrade-all`,
+- Maintenance commands: `brew-update`, `brew-upgrade-all` (optionally
+  only formulae with known vulnerabilities),
   `brew-cleanup`, `brew-autoremove`, `brew-doctor`.
 - All brew calls are asynchronous; mutations stream into the `*brew*`
   buffer with progress-bar and color rendering.

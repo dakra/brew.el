@@ -1121,8 +1121,12 @@ This calls brew synchronously and may take a second."
   (brew--run '("doctor")))
 
 (defun brew-upgrade-all-run (args)
-  "Upgrade all outdated Homebrew packages with option ARGS."
+  "Upgrade all outdated Homebrew packages with option ARGS.
+A \"--severity=\" option implies \"--vulnerable\"."
   (interactive (list (transient-args 'brew-upgrade-all)))
+  (when (and (transient-arg-value "--severity=" args)
+             (not (member "--vulnerable" args)))
+    (push "--vulnerable" args))
   (brew--run (cons "upgrade" args) #'brew--revert-package-list))
 
 ;;;###autoload (autoload 'brew-upgrade-all "brew" nil t)
@@ -1130,6 +1134,9 @@ This calls brew synchronously and may take a second."
   "Upgrade all outdated Homebrew packages."
   ["Options"
    ("g" "Greedy (also upgrade auto-updating casks)" "--greedy")
+   ("v" "Only formulae with known vulnerabilities" "--vulnerable")
+   ("s" "Minimum vulnerability severity" "--severity="
+    :choices ("low" "medium" "high" "critical"))
    ("n" "Dry run" "--dry-run")]
   ["Upgrade"
    ("u" "Upgrade all outdated packages" brew-upgrade-all-run)])
