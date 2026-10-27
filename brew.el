@@ -141,10 +141,11 @@ false become nil."
   "Run brew with ARGS asynchronously and pass the output to CALLBACK.
 The process output is collected in a hidden buffer.  On success,
 PARSER (defaulting to `buffer-string') is called in that buffer
-and its result is passed to CALLBACK.  On failure, a message with
-the stderr output is shown and ON-ERROR, if non-nil, is called
-with no arguments.  Exit codes in the list EXIT-CODES also count
-as success when brew printed any output."
+and its result is passed to CALLBACK; any stderr output, such as
+brew's warnings, is shown as a message afterwards.  On failure, a
+message with the stderr output is shown and ON-ERROR, if non-nil,
+is called with no arguments.  Exit codes in the list EXIT-CODES
+also count as success when brew printed any output."
   (let* ((stdout (generate-new-buffer " *brew-stdout*"))
          (stderr (generate-new-buffer " *brew-stderr*"))
          (stderr-pipe (make-pipe-process
@@ -161,22 +162,27 @@ as success when brew printed any output."
      (lambda (proc _event)
        (when (memq (process-status proc) '(exit signal))
          (unwind-protect
-             (if (let ((code (process-exit-status proc)))
-                   (or (zerop code)
+             (let ((command (truncate-string-to-width
+                             (string-join args " ") 60 nil nil "…"))
+                   (code (process-exit-status proc))
+                   errors)
+               ;; The stderr pipe is a separate process; read any
+               ;; output it has not delivered yet.
+               (while (accept-process-output stderr-pipe 0))
+               (setq errors (with-current-buffer stderr
+                              (string-trim (buffer-string))))
+               (if (or (zerop code)
                        (and (eq (process-status proc) 'exit)
                             (memq code exit-codes)
-                            (> (buffer-size stdout) 0))))
-                 (let ((result (with-current-buffer stdout
-                                 (goto-char (point-min))
-                                 (funcall (or parser #'buffer-string)))))
-                   (funcall callback result))
-               (progn
-                 ;; The stderr pipe is a separate process; drain any
-                 ;; output it has not delivered yet.
-                 (while (accept-process-output stderr-pipe 0.05))
-                 (message "brew %s: %s" (string-join args " ")
-                          (with-current-buffer stderr
-                            (string-trim (buffer-string))))
+                            (> (buffer-size stdout) 0)))
+                   (unwind-protect
+                       (funcall callback
+                                (with-current-buffer stdout
+                                  (goto-char (point-min))
+                                  (funcall (or parser #'buffer-string))))
+                     (unless (string-empty-p errors)
+                       (message "brew %s: %s" command errors)))
+                 (message "brew %s: %s" command errors)
                  (when on-error (funcall on-error))))
            (delete-process stderr-pipe)
            (kill-buffer stdout)

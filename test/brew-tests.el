@@ -505,6 +505,31 @@
           (while (not done) (accept-process-output nil 0.05)))
         (should (eq done expected))))))
 
+(ert-deftest brew-tests-call-shows-stderr ()
+  "Stderr follows the callback on success and precedes ON-ERROR on failure.
+A failure is reported even without stderr output; a success without
+stderr output is not."
+  (let ((brew-executable "sh"))
+    (pcase-dolist (`(,script ,expected)
+                   '(("echo 'Warning: careful' >&2"
+                      ("callback" "brew -c echo 'Warning: careful' >&2: Warning: careful"))
+                     ("echo 'Error: broken' >&2; exit 1"
+                      ("brew -c echo 'Error: broken' >&2; exit 1: Error: broken"
+                       "on-error"))
+                     ("exit 1" ("brew -c exit 1: " "on-error"))
+                     ("true" ("callback"))))
+      (let (done messages)
+        (cl-letf (((symbol-function 'message)
+                   (lambda (format &rest args)
+                     (push (apply #'format-message format args) messages))))
+          (brew--call (list "-c" script)
+                      (lambda (_output) (message "callback") (setq done t))
+                      nil
+                      (lambda () (message "on-error") (setq done t)))
+          (with-timeout (5 (error "Timed out"))
+            (while (not done) (accept-process-output nil 0.05))))
+        (should (equal (nreverse messages) expected))))))
+
 ;;;; Version install
 
 (ert-deftest brew-tests-read-formula-completes-formulae-only ()
