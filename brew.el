@@ -385,12 +385,14 @@ echoed into the buffer.  Quitting the prompt interrupts brew."
 ;;;; Data model
 
 (defconst brew--statuses
-  '("outdated" "pinned" "deprecated" "installed" "dependency" "available")
+  '("outdated" "pinned" "disabled" "deprecated" "installed" "dependency"
+    "available")
   "All package statuses, in sort order (most interesting first).")
 
 (defconst brew--status-faces
   '(("outdated" . brew-status-outdated)
     ("pinned" . brew-status-pinned)
+    ("disabled" . brew-status-deprecated)
     ("deprecated" . brew-status-deprecated)
     ("installed" . brew-status-installed)
     ("dependency" . brew-status-dependency)
@@ -426,6 +428,7 @@ is still shown in the package info buffer."
     (let* ((installed (car .installed))
            (status (cond
                     ((and installed .pinned) "pinned")
+                    ((and installed .disabled) "disabled")
                     (.outdated "outdated")
                     ((and installed .deprecated) "deprecated")
                     ((and installed
@@ -445,6 +448,7 @@ is still shown in the package info buffer."
   "Return a tabulated-list entry for the CASK info alist."
   (let-alist cask
     (let ((status (cond
+                   ((and .installed .disabled) "disabled")
                    (.outdated "outdated")
                    ((and .installed .deprecated) "deprecated")
                    (.installed "installed")
@@ -943,6 +947,8 @@ it when it is not installed, uninstall it otherwise."
          (when .auto_updates
            (brew--info-insert-field "Auto-updates" "yes"))))
       (when .outdated (brew--info-insert-field "Outdated" "yes"))
+      (when .disabled
+        (brew--info-insert-field "Disabled" (or .disable_reason "yes")))
       (when .deprecated
         (brew--info-insert-field
          "Deprecated" (or .deprecation_reason "yes")))

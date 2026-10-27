@@ -64,6 +64,14 @@
   (let ((entry (brew--formula-entry (brew-tests--formula "gemini-cli"))))
     (should (equal (brew--entry-status entry) "deprecated"))))
 
+(ert-deftest brew-tests-formula-entry-disabled ()
+  "Disabled wins over deprecated and outdated; brew refuses to upgrade it."
+  (let* ((formula (copy-alist (brew-tests--formula "enchant")))
+         (formula (cons '(disabled . t)
+                        (assq-delete-all 'disabled formula)))
+         (entry (brew--formula-entry formula)))
+    (should (equal (brew--entry-status entry) "disabled"))))
+
 (ert-deftest brew-tests-formula-entry-deprecated-not-installed ()
   "A deprecated formula that is not installed is markable as available."
   (let* ((formula (copy-alist (brew-tests--formula "gemini-cli")))
@@ -130,6 +138,15 @@
                  (installed . nil)))
          (entry (brew--cask-entry cask)))
     (should (equal (brew--entry-status entry) "available"))))
+
+(ert-deftest brew-tests-cask-entry-disabled ()
+  (let ((entry (brew--cask-entry '((token . "old-app")
+                                   (version . "1.0")
+                                   (installed . "0.9")
+                                   (outdated . t)
+                                   (deprecated . t)
+                                   (disabled . t)))))
+    (should (equal (brew--entry-status entry) "disabled"))))
 
 (ert-deftest brew-tests-cask-entry-deprecated-not-installed ()
   "A deprecated cask that is not installed is markable as available."

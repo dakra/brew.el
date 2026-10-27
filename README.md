@@ -34,7 +34,7 @@ Buffers                Packages           Maintenance
 ### Package list (`M-x brew-list-packages`)
 
 Lists all installed formulae and casks with their installed and latest
-versions and a status (`outdated`, `pinned`, `deprecated`,
+versions and a status (`outdated`, `pinned`, `disabled`, `deprecated`,
 `installed`, `dependency` or `available`).
 
 | Key         | Action                                                                                                                      |
